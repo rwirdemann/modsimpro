@@ -1,6 +1,10 @@
 package main
 
 import (
+	"flag"
+	"github.com/rwirdemann/modbusgate"
+	"log/slog"
+	"os"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -15,14 +19,36 @@ type ModbusEntry struct {
 	connected bool
 }
 
+var configPath string
+
 func main() {
+	flag.StringVar(&configPath, "config", "", "path to the configuration directory")
+	flag.Parse()
+	if configPath == "" {
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
+	os.Exit(run())
+}
+
+func run() int {
+	config, err := modbusgate.LoadConfig(configPath)
+	if err != nil {
+		slog.Error(err.Error())
+		return 1
+	}
+
+	var data []*ModbusEntry
+	for _, serial := range config.Serials {
+		for _, slave := range serial.Slaves {
+			data = append(data, &ModbusEntry{serial.Url, slave.Address, false})
+		}
+	}
+
 	myApp := app.New()
 	myWindow := myApp.NewWindow("ModbusGate")
 
-	var data = []*ModbusEntry{
-		{url: "tcp://localhost:502", address: 100, connected: false},
-		{url: "tcp://localhost:503", address: 101, connected: false},
-	}
 	list := widget.NewList(
 		func() int {
 			return len(data)
@@ -81,4 +107,5 @@ func main() {
 	myWindow.Resize(fyne.NewSize(900, 600))
 	myWindow.SetContent(split)
 	myWindow.ShowAndRun()
+	return 0
 }
