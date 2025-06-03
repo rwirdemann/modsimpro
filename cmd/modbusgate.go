@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strconv"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -9,6 +11,7 @@ import (
 
 type ModbusEntry struct {
 	url       string
+	address   int
 	connected bool
 }
 
@@ -17,27 +20,30 @@ func main() {
 	myWindow := myApp.NewWindow("ModbusGate")
 
 	var data = []*ModbusEntry{
-		{url: "tcp://localhost:502", connected: false},
-		{url: "tcp://localhost:503", connected: false},
+		{url: "tcp://localhost:502", address: 100, connected: false},
+		{url: "tcp://localhost:503", address: 101, connected: false},
 	}
 	list := widget.NewList(
 		func() int {
 			return len(data)
 		},
 		func() fyne.CanvasObject {
-			// Create a template with a url and a button side by side
+			// Create a template with url, address and a button
 			url := widget.NewLabel("template")
+			address := widget.NewLabel("template")
 			button := widget.NewButton("Connect", func() {})
 			button.Importance = widget.DangerImportance
-			return container.NewBorder(nil, nil, url, button)
+			return container.NewHBox(url, address, button)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			cont := o.(*fyne.Container)
-			label := cont.Objects[0].(*widget.Label)
-			button := cont.Objects[1].(*widget.Button)
+			urlLabel := cont.Objects[0].(*widget.Label)
+			addressLabel := cont.Objects[1].(*widget.Label)
+			button := cont.Objects[2].(*widget.Button)
 
 			entry := data[i]
-			label.SetText(entry.url)
+			urlLabel.SetText(entry.url)
+			addressLabel.SetText(strconv.Itoa(entry.address))
 
 			// Update button appearance based on connection state
 			updateButton := func() {
