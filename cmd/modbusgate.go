@@ -2,10 +2,13 @@ package main
 
 import (
 	"flag"
-	"github.com/rwirdemann/modbusgate"
+	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
+	"time"
+
+	"github.com/rwirdemann/modbusgate"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -39,8 +42,17 @@ func run() int {
 		return 1
 	}
 
+	logArea := widget.NewTextGrid()
+
 	var data []*ModbusEntry
 	for _, serial := range config.Serials {
+		ms := modbusgate.NewModbusServer(serial.Url, logArea)
+		err := ms.Start()
+		if err != nil {
+			slog.Error(err.Error())
+			return 1
+		}
+
 		for _, slave := range serial.Slaves {
 			data = append(data, &ModbusEntry{serial.Url, slave.Address, false})
 		}
@@ -48,6 +60,15 @@ func run() int {
 
 	myApp := app.New()
 	myWindow := myApp.NewWindow("ModbusGate")
+
+	logScrollContainer := container.NewScroll(logArea)
+	logScrollContainer.SetMinSize(fyne.NewSize(400, 600))
+
+	// Helper function to append text and auto-scroll to bottom
+	appendAndScroll := func(text string) {
+		logArea.Append(text)
+		logScrollContainer.ScrollToBottom()
+	}
 
 	list := widget.NewList(
 		func() int {
@@ -89,16 +110,18 @@ func run() int {
 				// Toggle connection state
 				entry.connected = !entry.connected
 				updateButton()
+				ts := time.Now().Format(time.DateTime)
 				if entry.connected {
-					println("Connected to:", entry.url)
+					appendAndScroll(fmt.Sprintf("%s %s:%d: connected", ts, entry.url, entry.address))
 				} else {
-					println("Disconnected from:", entry.url)
+					appendAndScroll(fmt.Sprintf("%s %s:%d: diconnected", ts, entry.url, entry.address))
 				}
 			}
 		})
 
 	// Empty container for the right side (2/3 of the window)
 	rightSide := container.NewVBox()
+	rightSide.Add(logScrollContainer)
 
 	// Main split container with list on left (1/3) and empty space on right (2/3)
 	split := container.NewHSplit(list, rightSide)
