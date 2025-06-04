@@ -23,12 +23,13 @@ type ModbusServer struct {
 	tcpListener net.Listener
 	sock        net.Conn
 	lastTxnId   uint16
+	slaves      map[int]bool
 }
 
 func NewModbusServer(url string, logger Logger) *ModbusServer {
 	splitURL := strings.SplitN(url, "://", 2)
 	if len(splitURL) == 2 {
-		return &ModbusServer{url: splitURL[1], logger: logger}
+		return &ModbusServer{url: splitURL[1], logger: logger, slaves: make(map[int]bool)}
 	}
 	return nil
 }
@@ -39,6 +40,14 @@ func (s *ModbusServer) Start() (err error) {
 		go s.acceptTCPClients()
 	}
 	return
+}
+
+func (s *ModbusServer) Connect(slaveID int) {
+	s.slaves[slaveID] = true
+}
+
+func (s *ModbusServer) Disconnect(slaveID int) {
+	s.slaves[slaveID] = false
 }
 
 func (s *ModbusServer) acceptTCPClients() {
@@ -103,6 +112,14 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 
 		// store the incoming transaction id
 		s.lastTxnId = txnId
+
+		if !s.slaves[int(req.unitId)] {
+			fyne.Do(func() {
+				ts := time.Now().Format(time.DateTime)
+				s.logger.Append(fmt.Sprintf("%s req: slave id: %d is offline", ts, req.unitId))
+			})
+			continue
+		}
 
 		if req.functionCode == fcReadDiscreteInputs {
 			// addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])

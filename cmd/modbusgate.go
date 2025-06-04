@@ -22,6 +22,24 @@ type ModbusEntry struct {
 	connected bool
 }
 
+type logArea struct {
+	textGrid           *widget.TextGrid
+	logScrollContainer *container.Scroll
+}
+
+func newLogArea() *logArea {
+	textGrid := widget.NewTextGrid()
+	logScrollContainer := container.NewScroll(textGrid)
+	logScrollContainer.SetMinSize(fyne.NewSize(400, 600))
+
+	return &logArea{textGrid: textGrid, logScrollContainer: logScrollContainer}
+}
+
+func (l logArea) Append(text string) {
+	l.textGrid.Append(text)
+	l.logScrollContainer.ScrollToBottom()
+}
+
 var configPath string
 
 func main() {
@@ -42,11 +60,12 @@ func run() int {
 		return 1
 	}
 
-	logArea := widget.NewTextGrid()
+	logArea := newLogArea()
 
+	var ms *modbusgate.ModbusServer
 	var data []*ModbusEntry
 	for _, serial := range config.Serials {
-		ms := modbusgate.NewModbusServer(serial.Url, logArea)
+		ms = modbusgate.NewModbusServer(serial.Url, logArea)
 		err := ms.Start()
 		if err != nil {
 			slog.Error(err.Error())
@@ -60,15 +79,6 @@ func run() int {
 
 	myApp := app.New()
 	myWindow := myApp.NewWindow("ModbusGate")
-
-	logScrollContainer := container.NewScroll(logArea)
-	logScrollContainer.SetMinSize(fyne.NewSize(400, 600))
-
-	// Helper function to append text and auto-scroll to bottom
-	appendAndScroll := func(text string) {
-		logArea.Append(text)
-		logScrollContainer.ScrollToBottom()
-	}
 
 	list := widget.NewList(
 		func() int {
@@ -112,16 +122,18 @@ func run() int {
 				updateButton()
 				ts := time.Now().Format(time.DateTime)
 				if entry.connected {
-					appendAndScroll(fmt.Sprintf("%s %s:%d: connected", ts, entry.url, entry.address))
+					logArea.Append(fmt.Sprintf("%s %s:%d: connected", ts, entry.url, entry.address))
+					ms.Connect(entry.address)
 				} else {
-					appendAndScroll(fmt.Sprintf("%s %s:%d: diconnected", ts, entry.url, entry.address))
+					logArea.Append(fmt.Sprintf("%s %s:%d: diconnected", ts, entry.url, entry.address))
+					ms.Disconnect(entry.address)
 				}
 			}
 		})
 
 	// Empty container for the right side (2/3 of the window)
 	rightSide := container.NewVBox()
-	rightSide.Add(logScrollContainer)
+	rightSide.Add(logArea.logScrollContainer)
 
 	// Main split container with list on left (1/3) and empty space on right (2/3)
 	split := container.NewHSplit(list, rightSide)
