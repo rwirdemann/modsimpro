@@ -1,0 +1,17 @@
+[
+  {
+    "label": "Run ModbusGate",
+    "command": "go",
+    "args": [
+      "run",
+      "cmd/modbusgate.go",
+      "--config",
+      "/Users/ralfwirdemann/go/src/neonpulse.io/modbusapp/config"
+    ],
+    "cwd": "${workspaceFolder}",
+    "group": {
+      "kind": "build",
+      "isDefault": true
+    }
+  }
+]

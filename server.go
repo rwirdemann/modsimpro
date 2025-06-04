@@ -101,7 +101,7 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 	var txnId uint16
 	for {
 		req, txnId, err = s.readMBAPFrame()
-		if err != nil {
+		if err != nil || req == nil {
 			continue
 		}
 
