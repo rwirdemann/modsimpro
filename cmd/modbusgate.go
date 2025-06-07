@@ -22,6 +22,7 @@ type ModbusEntry struct {
 	address    int
 	connected  bool
 	deviceType string
+	server     *modbusgate.ModbusServer
 }
 
 type logArea struct {
@@ -64,10 +65,9 @@ func run() int {
 
 	logArea := newLogArea()
 
-	var ms *modbusgate.ModbusServer
 	var data []*ModbusEntry
 	for _, serial := range config.Serials {
-		ms = modbusgate.NewModbusServer(serial.Url, logArea)
+		ms := modbusgate.NewModbusServer(serial.Url, logArea)
 		err := ms.Start()
 		if err != nil {
 			slog.Error(err.Error())
@@ -75,7 +75,7 @@ func run() int {
 		}
 
 		for _, slave := range serial.Slaves {
-			data = append(data, &ModbusEntry{serial.Url, slave.Address, false, deviceTypeShort(slave.Type)})
+			data = append(data, &ModbusEntry{serial.Url, slave.Address, false, deviceTypeShort(slave.Type), ms})
 		}
 	}
 
@@ -95,12 +95,14 @@ func run() int {
 			button.Importance = widget.DangerImportance
 
 			left := container.NewHBox(url, address, deviceType)
-			return container.NewBorder(nil, nil, left, button)
+			buttonWithPadding := container.NewHBox(button, widget.NewLabel("  "))
+			return container.NewBorder(nil, nil, left, buttonWithPadding)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			cont := o.(*fyne.Container)
 			leftContainer := cont.Objects[0].(*fyne.Container)
-			button := cont.Objects[1].(*widget.Button)
+			buttonContainer := cont.Objects[1].(*fyne.Container)
+			button := buttonContainer.Objects[0].(*widget.Button)
 
 			urlLabel := leftContainer.Objects[0].(*widget.Label)
 			addressLabel := leftContainer.Objects[1].(*widget.Label)
@@ -132,10 +134,10 @@ func run() int {
 				ts := time.Now().Format(time.DateTime)
 				if entry.connected {
 					logArea.Append(fmt.Sprintf("%s %s:%d: connected", ts, entry.url, entry.address))
-					ms.Connect(entry.address)
+					entry.server.Connect(entry.address)
 				} else {
 					logArea.Append(fmt.Sprintf("%s %s:%d: diconnected", ts, entry.url, entry.address))
-					ms.Disconnect(entry.address)
+					entry.server.Disconnect(entry.address)
 				}
 			}
 		})
