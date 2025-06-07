@@ -89,26 +89,27 @@ func run() int {
 		func() fyne.CanvasObject {
 			// Create a template with url, address and a button
 			url := widget.NewLabel("template")
-			url.TextStyle = fyne.TextStyle{Monospace: true}
 			address := widget.NewLabel("template")
-			address.TextStyle = fyne.TextStyle{Monospace: true}
 			deviceType := widget.NewLabel("template")
-			deviceType.TextStyle = fyne.TextStyle{Monospace: true}
 			button := widget.NewButton("Connect", func() {})
 			button.Importance = widget.DangerImportance
-			return container.NewHBox(url, address, deviceType, button)
+
+			left := container.NewHBox(url, address, deviceType)
+			return container.NewBorder(nil, nil, left, button)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
 			cont := o.(*fyne.Container)
-			urlLabel := cont.Objects[0].(*widget.Label)
-			addressLabel := cont.Objects[1].(*widget.Label)
-			deviceType := cont.Objects[2].(*widget.Label)
-			button := cont.Objects[3].(*widget.Button)
+			leftContainer := cont.Objects[0].(*fyne.Container)
+			button := cont.Objects[1].(*widget.Button)
+
+			urlLabel := leftContainer.Objects[0].(*widget.Label)
+			addressLabel := leftContainer.Objects[1].(*widget.Label)
+			deviceType := leftContainer.Objects[2].(*widget.Label)
 
 			entry := data[i]
-			urlLabel.SetText(fmt.Sprintf("%-12s", entry.url))
-			addressLabel.SetText(fmt.Sprintf("%-3s", strconv.Itoa(entry.address)))
-			deviceType.SetText(fmt.Sprintf("%-12s", entry.deviceType))
+			urlLabel.SetText(entry.url)
+			addressLabel.SetText(strconv.Itoa(entry.address))
+			deviceType.SetText(entry.deviceType)
 
 			// Update button appearance based on connection state
 			updateButton := func() {
@@ -138,6 +139,8 @@ func run() int {
 				}
 			}
 		})
+
+
 
 	rightSide := container.NewVBox()
 	rightSide.Add(logArea.logScrollContainer)
