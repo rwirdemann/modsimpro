@@ -45,7 +45,7 @@ func (l logArea) Append(text string) {
 var configPath string
 
 func main() {
-	flag.StringVar(&configPath, "config", "", "path to the configuration directory")
+	flag.StringVar(&configPath, "config", "/Users/ralfwirdemann/go/src/neonpulse.io/modbusapp/config", "path to the configuration directory")
 	flag.Parse()
 	if configPath == "" {
 		flag.PrintDefaults()
@@ -139,8 +139,6 @@ func run() int {
 				}
 			}
 		})
-
-
 
 	rightSide := container.NewVBox()
 	rightSide.Add(logArea.logScrollContainer)
