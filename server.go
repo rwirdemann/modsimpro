@@ -9,8 +9,6 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	"fyne.io/fyne/v2"
 )
 
 type Logger interface {
@@ -58,11 +56,9 @@ func (s *ModbusServer) acceptTCPClients() {
 			slog.Warn("failed to accept client connection: %v", err)
 			continue
 		}
-		fyne.Do(func() {
-			ts := time.Now().Format(time.DateTime)
-			text := fmt.Sprintf("%s: client %s connected", ts, s.sock.RemoteAddr())
-			s.logger.Append(text)
-		})
+		ts := time.Now().Format(time.DateTime)
+		text := fmt.Sprintf("%s: client %s connected", ts, s.sock.RemoteAddr())
+		s.logger.Append(text)
 		go s.handleClient()
 
 		// sock.Close()
@@ -104,20 +100,15 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 		if err != nil || req == nil {
 			continue
 		}
-
-		fyne.Do(func() {
-			ts := time.Now().Format(time.DateTime)
-			s.logger.Append(fmt.Sprintf("%s req: slave id: %d fc: %X payload: % X", ts, req.unitId, req.functionCode, req.payload))
-		})
+		ts := time.Now().Format(time.DateTime)
+		s.logger.Append(fmt.Sprintf("%s req: slave id: %d fc: %X payload: % X", ts, req.unitId, req.functionCode, req.payload))
 
 		// store the incoming transaction id
 		s.lastTxnId = txnId
 
 		if !s.slaves[int(req.unitId)] {
-			fyne.Do(func() {
-				ts := time.Now().Format(time.DateTime)
-				s.logger.Append(fmt.Sprintf("%s req: slave id: %d is offline", ts, req.unitId))
-			})
+			ts := time.Now().Format(time.DateTime)
+			s.logger.Append(fmt.Sprintf("%s req: slave id: %d is offline", ts, req.unitId))
 			continue
 		}
 
@@ -146,10 +137,8 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			// coil values
 			res.payload = append(res.payload, encodeBools(values)...)
 
-			fyne.Do(func() {
-				ts := time.Now().Format(time.DateTime)
-				s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, res.payload))
-			})
+			ts := time.Now().Format(time.DateTime)
+			s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, res.payload))
 
 			_, err = s.sock.Write(s.assembleMBAPFrame(s.lastTxnId, res))
 			if err != nil {
