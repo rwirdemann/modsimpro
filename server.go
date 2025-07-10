@@ -15,6 +15,7 @@ type Logger interface {
 	Append(text string)
 }
 
+// ModbusServer represents a TCP based modbus server with multiple slaves connected to it.
 type ModbusServer struct {
 	url         string
 	logger      Logger

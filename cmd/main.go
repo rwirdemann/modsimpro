@@ -25,27 +25,29 @@ var (
 				Foreground(lipgloss.Color("#FAFAFA")).
 				Background(lipgloss.Color("#F25D94"))
 
-	slaveStyle = lipgloss.NewStyle().Height(20).Width(56).Border(lipgloss.NormalBorder())
+	slaveStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
 	logStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
 )
 
-type Connection struct {
-	URL       string
-	ID        int
-	Name      string
-	Connected bool
-	Server    *modbusgate.ModbusServer
+// Slave represents an entry in the slave list. A slave holds a reference to the server it belongs to in order to inform
+// the server wether the slave is online or not.
+type Slave struct {
+	URL    string
+	ID     int
+	Name   string
+	online bool
+	Server *modbusgate.ModbusServer
 }
 
-func (c Connection) Description() string {
-	connected := "connected"
-	if !c.Connected {
-		connected = "disconnected"
+func (c Slave) Description() string {
+	connected := " online"
+	if !c.online {
+		connected = "offline"
 	}
 	return fmt.Sprintf("%-20s %3d %15s %-10s", c.URL, c.ID, c.Name, connected)
 }
 
-func (c Connection) FilterValue() string {
+func (c Slave) FilterValue() string {
 	return c.URL + " " + c.Name
 }
 
@@ -84,8 +86,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if len(m.list.Items()) > 0 {
-				selected := m.list.SelectedItem().(Connection)
-				if selected.Connected {
+				selected := m.list.SelectedItem().(Slave)
+				if selected.online {
 					selected.Server.Disconnect(selected.ID)
 					ts := time.Now().Format(time.DateTime)
 					m.logger.Append(fmt.Sprintf("%s %s:%d: disconnected", ts, selected.URL, selected.ID))
@@ -94,7 +96,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					ts := time.Now().Format(time.DateTime)
 					m.logger.Append(fmt.Sprintf("%s %s:%d: connected", ts, selected.URL, selected.ID))
 				}
-				selected.Connected = !selected.Connected
+				selected.online = !selected.online
 				return m, m.list.SetItem(m.list.Index(), selected)
 			}
 			return m, nil
@@ -118,7 +120,7 @@ func (m model) View() string {
 
 	// Connection list
 	for i, item := range m.list.Items() {
-		conn := item.(Connection)
+		conn := item.(Slave)
 
 		var style lipgloss.Style
 		if i == m.list.Index() {
@@ -173,7 +175,7 @@ func main() {
 		}
 
 		for _, slave := range serial.Slaves {
-			c := Connection{
+			c := Slave{
 				URL:    serial.Url,
 				ID:     slave.Address,
 				Name:   deviceTypeShort(slave.Type),
