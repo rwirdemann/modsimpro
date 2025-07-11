@@ -25,8 +25,8 @@ var (
 				Foreground(lipgloss.Color("#FAFAFA")).
 				Background(lipgloss.Color("#F25D94"))
 
-	slaveStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
-	logStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
+	slavePanelStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
+	logPanelStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
 
 	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 		Light: "#909090",
@@ -79,10 +79,6 @@ func panelHeight(height int) int {
 	return height - 3
 }
 
-func slavePanelWidth(width int) int {
-	return int(float32(width) * 0.40)
-}
-
 func (m model) panelWidth(windowWidth int) (int, int) {
 	slavePanelWidth := float32(windowWidth) * 0.40
 	logPanelWidth := float32(windowWidth) * 0.60
@@ -94,13 +90,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.logger.maxItems = msg.Height - 3
+		panelHeight := panelHeight(msg.Height)
 
-		sw, lw := m.panelWidth(msg.Width)
-		slaveStyle = slaveStyle.Width(sw)
-		slaveStyle = slaveStyle.Height(panelHeight(msg.Height))
-		logStyle = logStyle.Width(lw)
-		logStyle = logStyle.Height(panelHeight(msg.Height))
+		// Remove items from log panel if their number exceeds new panel height
+		if len(m.logger.items) > panelHeight {
+			m.logger.items = m.logger.items[len(m.logger.items)-panelHeight:]
+		}
+
+		m.logger.maxItems = panelHeight
+		slavePanelWidth, logPanelWidth := m.panelWidth(msg.Width)
+		slavePanelStyle = slavePanelStyle.Width(slavePanelWidth)
+		slavePanelStyle = slavePanelStyle.Height(panelHeight)
+		logPanelStyle = logPanelStyle.Width(logPanelWidth)
+		logPanelStyle = logPanelStyle.Height(panelHeight)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -154,8 +156,8 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	var logs = logStyle.Render(strings.Join(m.logger.items, "\n"))
-	s := lipgloss.JoinHorizontal(lipgloss.Top, slaveStyle.Render(b.String()), logs)
+	var logs = logPanelStyle.Render(strings.Join(m.logger.items, "\n"))
+	s := lipgloss.JoinHorizontal(lipgloss.Top, slavePanelStyle.Render(b.String()), logs)
 	help := helpStyle.Render("enter - connect • q - quit")
 	return lipgloss.JoinVertical(lipgloss.Top, s, help)
 }
