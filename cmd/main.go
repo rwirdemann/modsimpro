@@ -27,6 +27,11 @@ var (
 
 	slaveStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
 	logStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
+
+	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
+		Light: "#909090",
+		Dark:  "#626262",
+	}).Padding(0, 1)
 )
 
 // Slave represents an entry in the slave list. A slave holds a reference to the server it belongs to in order to inform
@@ -70,12 +75,28 @@ func (m model) Init() tea.Cmd {
 	return tickCmd()
 }
 
+func panelHeight(height int) int {
+	return height - 3
+}
+
+func slavePanelWidth(width int) int {
+	return int(float32(width) * 0.40)
+}
+
+func logPanelWidth(width int) int {
+	return int(float32(width)*0.60) - 3
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
+		m.logger.maxItems = msg.Height - 3
+		slaveStyle = slaveStyle.Width(slavePanelWidth(msg.Width))
+		slaveStyle = slaveStyle.Height(panelHeight(msg.Height))
+		logStyle = logStyle.Width(logPanelWidth(msg.Width))
+		logStyle = logStyle.Height(panelHeight(msg.Height))
 		return m, nil
 
 	case tea.KeyMsg:
@@ -112,10 +133,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.quitting {
-		return "Goodbye!\n"
-	}
-
 	var b strings.Builder
 
 	// Connection list
@@ -133,22 +150,22 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	b.WriteString("\n")
-	b.WriteString("Press 'enter' to connect, 'q' to quit")
-
 	var logs = logStyle.Render(strings.Join(m.logger.items, "\n"))
-	return lipgloss.JoinHorizontal(lipgloss.Top, slaveStyle.Render(b.String()), logs)
+	s := lipgloss.JoinHorizontal(lipgloss.Top, slaveStyle.Render(b.String()), logs)
+	help := helpStyle.Render("enter - connect • q - quit")
+	return lipgloss.JoinVertical(lipgloss.Top, s, help)
 }
 
 type logger struct {
-	items []string
+	items    []string
+	maxItems int
 }
 
 func (l *logger) Append(s string) {
-	if len(l.items) >= 20 {
-		l.items = l.items[:19]
+	l.items = append(l.items, s)
+	if len(l.items) > l.maxItems {
+		l.items = l.items[1:]
 	}
-	l.items = append([]string{s}, l.items...)
 }
 
 func main() {
