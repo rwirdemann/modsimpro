@@ -11,7 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rwirdemann/modbusgate"
+	"github.com/rwirdemann/modsimpro"
 )
 
 var (
@@ -41,7 +41,7 @@ type Slave struct {
 	ID     int
 	Name   string
 	online bool
-	Server *modbusgate.ModbusServer
+	Server *modsimpro.ModbusServer
 }
 
 func (c Slave) Description() string {
@@ -59,7 +59,6 @@ func (c Slave) FilterValue() string {
 type model struct {
 	list     list.Model
 	selected int
-	quitting bool
 	logger   *logger
 }
 
@@ -108,19 +107,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "ctrl+c", "q":
-			m.quitting = true
 			return m, tea.Quit
 
 		case "enter":
 			if len(m.list.Items()) > 0 {
 				selected := m.list.SelectedItem().(Slave)
+				ts := time.Now().Format(time.DateTime)
 				if selected.online {
 					selected.Server.Disconnect(selected.ID)
-					ts := time.Now().Format(time.DateTime)
 					m.logger.Append(fmt.Sprintf("%s %s:%d: disconnected", ts, selected.URL, selected.ID))
 				} else {
 					selected.Server.Connect(selected.ID)
-					ts := time.Now().Format(time.DateTime)
 					m.logger.Append(fmt.Sprintf("%s %s:%d: connected", ts, selected.URL, selected.ID))
 				}
 				selected.online = !selected.online
@@ -183,7 +180,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	config, err := modbusgate.LoadConfig(configPath)
+	config, err := modsimpro.LoadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,7 +188,7 @@ func main() {
 	logger := &logger{}
 	var connections []list.Item
 	for _, serial := range config.Serials {
-		ms := modbusgate.NewModbusServer(serial.Url, logger)
+		ms := modsimpro.NewModbusServer(serial.Url, logger)
 		err := ms.Start()
 		if err != nil {
 			log.Fatal(err)

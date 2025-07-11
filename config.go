@@ -1,4 +1,4 @@
-package modbusgate
+package modsimpro
 
 import (
 	"bytes"
