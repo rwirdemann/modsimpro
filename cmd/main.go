@@ -83,8 +83,10 @@ func slavePanelWidth(width int) int {
 	return int(float32(width) * 0.40)
 }
 
-func logPanelWidth(width int) int {
-	return int(float32(width)*0.60) - 3
+func (m model) panelWidth(windowWidth int) (int, int) {
+	slavePanelWidth := float32(windowWidth) * 0.40
+	logPanelWidth := float32(windowWidth) * 0.60
+	return int(slavePanelWidth), int(logPanelWidth) - 3
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -93,9 +95,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.logger.maxItems = msg.Height - 3
-		slaveStyle = slaveStyle.Width(slavePanelWidth(msg.Width))
+
+		sw, lw := m.panelWidth(msg.Width)
+		slaveStyle = slaveStyle.Width(sw)
 		slaveStyle = slaveStyle.Height(panelHeight(msg.Height))
-		logStyle = logStyle.Width(logPanelWidth(msg.Width))
+		logStyle = logStyle.Width(lw)
 		logStyle = logStyle.Height(panelHeight(msg.Height))
 		return m, nil
 
