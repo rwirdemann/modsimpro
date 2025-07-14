@@ -15,16 +15,6 @@ import (
 )
 
 var (
-	itemStyle = lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1)
-
-	selectedItemStyle = lipgloss.NewStyle().
-				PaddingLeft(1).
-				PaddingRight(1).
-				Foreground(lipgloss.Color("#FAFAFA")).
-				Background(lipgloss.Color("#F25D94"))
-
 	slavePanelStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
 	logPanelStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
 
@@ -45,15 +35,19 @@ type Slave struct {
 }
 
 func (c Slave) Description() string {
-	connected := " online"
-	if !c.online {
-		connected = "offline"
-	}
-	return fmt.Sprintf("%-20s %3d %15s %-10s", c.URL, c.ID, c.Name, connected)
+	return c.Name
 }
 
 func (c Slave) FilterValue() string {
 	return c.URL + " " + c.Name
+}
+
+func (c Slave) Title() string {
+	connected := " online"
+	if !c.online {
+		connected = "offline"
+	}
+	return fmt.Sprintf("%-20s %3d %-10s", c.URL, c.ID, connected)
 }
 
 type model struct {
@@ -74,14 +68,16 @@ func (m model) Init() tea.Cmd {
 	return tickCmd()
 }
 
-func panelHeight(height int) int {
-	return height - 3
-}
+func (m model) distributePanels(windowWidth int) (int, int) {
+	slavePanelWidth := int(float32(windowWidth)*0.40) - 2
+	logPanelWidth := int(float32(windowWidth)*0.60) - 2
 
-func (m model) panelWidth(windowWidth int) (int, int) {
-	slavePanelWidth := float32(windowWidth) * 0.40
-	logPanelWidth := float32(windowWidth) * 0.60
-	return int(slavePanelWidth), int(logPanelWidth) - 3
+	totalUse := slavePanelWidth + logPanelWidth + 4
+	if totalUse < windowWidth {
+		logPanelWidth += windowWidth - totalUse
+	}
+
+	return slavePanelWidth, logPanelWidth
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -89,7 +85,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		panelHeight := panelHeight(msg.Height)
+		panelHeight := msg.Height - 3
 
 		// Remove items from log panel if their number exceeds new panel height
 		if len(m.logger.items) > panelHeight {
@@ -97,7 +93,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.logger.maxItems = panelHeight
-		slavePanelWidth, logPanelWidth := m.panelWidth(msg.Width)
+		slavePanelWidth, logPanelWidth := m.distributePanels(msg.Width)
 		slavePanelStyle = slavePanelStyle.Width(slavePanelWidth)
 		slavePanelStyle = slavePanelStyle.Height(panelHeight)
 		logPanelStyle = logPanelStyle.Width(logPanelWidth)
@@ -136,25 +132,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	var b strings.Builder
-
-	// Connection list
-	for i, item := range m.list.Items() {
-		conn := item.(Slave)
-
-		var style lipgloss.Style
-		if i == m.list.Index() {
-			style = selectedItemStyle
-		} else {
-			style = itemStyle
-		}
-
-		b.WriteString(style.Render(conn.Description()))
-		b.WriteString("\n")
-	}
-
 	var logs = logPanelStyle.Render(strings.Join(m.logger.items, "\n"))
-	s := lipgloss.JoinHorizontal(lipgloss.Top, slavePanelStyle.Render(b.String()), logs)
+	m.list.SetSize(slavePanelStyle.GetWidth(), slavePanelStyle.GetHeight())
+	s := lipgloss.JoinHorizontal(lipgloss.Top, slavePanelStyle.Render(m.list.View()), logs)
 	help := helpStyle.Render("enter - connect • q - quit")
 	return lipgloss.JoinVertical(lipgloss.Top, s, help)
 }
@@ -198,7 +178,7 @@ func main() {
 			c := Slave{
 				URL:    serial.Url,
 				ID:     slave.Address,
-				Name:   deviceTypeShort(slave.Type),
+				Name:   slave.Type,
 				Server: ms,
 			}
 			connections = append(connections, c)
@@ -220,14 +200,4 @@ func main() {
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func deviceTypeShort(s string) string {
-	if strings.Contains(s, "shortcircuit") {
-		return "shortcircuit"
-	}
-	if strings.Contains(s, "trafo") {
-		return "trafo"
-	}
-	return "unknown"
 }
