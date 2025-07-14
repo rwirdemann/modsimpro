@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/modsimpro"
+	"github.com/rwirdemann/panels"
 )
 
 var (
@@ -51,9 +52,10 @@ func (c Slave) Title() string {
 }
 
 type model struct {
-	list     list.Model
-	selected int
-	logger   *logger
+	list      list.Model
+	selected  int
+	logger    *logger
+	rootPanel *panels.Panel
 }
 
 type tickMsg time.Time
@@ -85,19 +87,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		panelHeight := msg.Height - 3
-
 		// Remove items from log panel if their number exceeds new panel height
-		if len(m.logger.items) > panelHeight {
-			m.logger.items = m.logger.items[len(m.logger.items)-panelHeight:]
+		if len(m.logger.items) > msg.Height-3 {
+			m.logger.items = m.logger.items[len(m.logger.items)-msg.Height-3:]
 		}
 
-		m.logger.maxItems = panelHeight
-		slavePanelWidth, logPanelWidth := m.distributePanels(msg.Width)
-		slavePanelStyle = slavePanelStyle.Width(slavePanelWidth)
-		slavePanelStyle = slavePanelStyle.Height(panelHeight)
-		logPanelStyle = logPanelStyle.Width(logPanelWidth)
-		logPanelStyle = logPanelStyle.Height(panelHeight)
+		m.logger.maxItems = msg.Height - 3
+		panels.Width = msg.Width
+		panels.Height = msg.Height
 		return m, nil
 
 	case tea.KeyMsg:
@@ -132,11 +129,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	var logs = logPanelStyle.Render(strings.Join(m.logger.items, "\n"))
-	m.list.SetSize(slavePanelStyle.GetWidth(), slavePanelStyle.GetHeight())
-	s := lipgloss.JoinHorizontal(lipgloss.Top, slavePanelStyle.Render(m.list.View()), logs)
 	help := helpStyle.Render("enter - connect • q - quit")
-	return lipgloss.JoinVertical(lipgloss.Top, s, help)
+	return lipgloss.JoinVertical(lipgloss.Top, m.rootPanel.View(m), help)
 }
 
 type logger struct {
@@ -149,6 +143,20 @@ func (l *logger) Append(s string) {
 	if len(l.items) > l.maxItems {
 		l.items = l.items[1:]
 	}
+}
+
+func renderListView(m tea.Model, w, h int) string {
+	model := m.(model)
+	model.list.SetSize(w, h)
+	return model.list.View()
+}
+
+func renderLogView(m tea.Model, _, _ int) string {
+	model := m.(model)
+	if len(model.logger.items) == 0 {
+		return "logger.items is empty"
+	}
+	return strings.Join(model.logger.items, "\n")
 }
 
 func main() {
@@ -191,9 +199,13 @@ func main() {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
+	rootPanel := panels.NewPanel(true, true, 1.0, nil)
+	rootPanel.Append(panels.NewPanel(true, false, 0.35, renderListView))
+	rootPanel.Append(panels.NewPanel(true, false, 0.65, renderLogView))
 	m := model{
-		list:   l,
-		logger: logger,
+		list:      l,
+		logger:    logger,
+		rootPanel: rootPanel,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
