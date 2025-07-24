@@ -16,9 +16,6 @@ import (
 )
 
 var (
-	slavePanelStyle = lipgloss.NewStyle().Height(20).Width(49).Border(lipgloss.NormalBorder())
-	logPanelStyle   = lipgloss.NewStyle().Height(20).Width(70).Border(lipgloss.NormalBorder())
-
 	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 		Light: "#909090",
 		Dark:  "#626262",
@@ -52,10 +49,11 @@ func (c Slave) Title() string {
 }
 
 type model struct {
-	list      list.Model
-	selected  int
-	logger    *logger
-	rootPanel *panels.Panel
+	width, heigth int
+	list          list.Model
+	selected      int
+	logger        *logger
+	rootPanel     *panels.Panel
 }
 
 type tickMsg time.Time
@@ -70,18 +68,6 @@ func (m model) Init() tea.Cmd {
 	return tickCmd()
 }
 
-func (m model) distributePanels(windowWidth int) (int, int) {
-	slavePanelWidth := int(float32(windowWidth)*0.40) - 2
-	logPanelWidth := int(float32(windowWidth)*0.60) - 2
-
-	totalUse := slavePanelWidth + logPanelWidth + 4
-	if totalUse < windowWidth {
-		logPanelWidth += windowWidth - totalUse
-	}
-
-	return slavePanelWidth, logPanelWidth
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -93,8 +79,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.logger.maxItems = msg.Height - 3
-		panels.Width = msg.Width
-		panels.Height = msg.Height
+		m.width = msg.Width
+		m.heigth = msg.Height
 		return m, nil
 
 	case tea.KeyMsg:
@@ -130,7 +116,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	help := helpStyle.Render("enter - connect • q - quit")
-	return lipgloss.JoinVertical(lipgloss.Top, m.rootPanel.View(m), help)
+	return lipgloss.JoinVertical(lipgloss.Top, m.rootPanel.View(m, m.width, m.heigth), help)
 }
 
 type logger struct {
