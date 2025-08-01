@@ -27,7 +27,7 @@ const (
 	focusRegisterList = iota
 	focusRegisterInput
 	focusSlaves
-	height      = 41
+	height      = 21
 	panelHeight = 10
 	panelWith   = 40
 )
