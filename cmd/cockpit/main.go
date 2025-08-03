@@ -28,7 +28,6 @@ const (
 	focusRegisterList = iota
 	focusRegisterInput
 	focusSlaves
-	height          = 21
 	panelHeight     = 10
 	leftPanelWidth  = 0.6
 	rightPanelWidth = 0.38
@@ -155,7 +154,6 @@ func newModel() model {
 		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(height+6),
 	)
 	registerTable.SetStyles(s)
 
@@ -204,6 +202,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
 		m.fullWidth = msg.Width
+		m.registerTable.SetHeight(m.fullHeight - 4)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -302,7 +301,6 @@ func (m model) renderRegisterTable() string {
 	}
 	w := int(float32(m.fullWidth) * leftPanelWidth)
 	h := m.registerTableHeight()
-	m.registerTable.SetHeight(h - 2)
 	style = style.Height(h).Width(w)
 	return style.Render(m.registerTable.View()) + "\n  " + m.registerTable.HelpView() + helpStyle.Render(" • <enter> update register value") + "\n"
 }
