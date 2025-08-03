@@ -7,12 +7,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/charmbracelet/bubbles/table"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/rwirdemann/modsimpro"
-	"github.com/rwirdemann/modsimpro/modbus"
 	"io"
 	"log"
 	"log/slog"
@@ -21,15 +15,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/rwirdemann/modsimpro"
+	"github.com/rwirdemann/modsimpro/modbus"
 )
 
 const (
 	focusRegisterList = iota
 	focusRegisterInput
 	focusSlaves
-	height      = 21
-	panelHeight = 10
-	panelWith   = 40
+	height          = 21
+	panelHeight     = 10
+	leftPanelWidth  = 0.6
+	rightPanelWidth = 0.38
 )
 
 var (
@@ -102,6 +104,7 @@ func main() {
 	}()
 
 	m := newModel()
+
 	if _, err := tea.NewProgram(m, tea.WithAltScreen()).Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
@@ -142,8 +145,8 @@ func newModel() model {
 		{Title: "Address", Width: 8},
 		{Title: "Action", Width: 6},
 		{Title: "Datatype", Width: 10},
-		{Title: "Type", Width: 15},
-		{Title: "Value", Width: 18},
+		{Title: "Type", Width: 10},
+		{Title: "Value", Width: 10},
 	}
 
 	registers := slaves[0].modbusPort.ReadRegister(slaves[0].Registers)
@@ -201,6 +204,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
 		m.fullWidth = msg.Width
+		return m, nil
 
 	case tea.KeyMsg:
 		switch m.focus {
@@ -296,7 +300,10 @@ func (m model) renderRegisterTable() string {
 	} else {
 		style = passiveStyle
 	}
-	style = style.Height(m.registerTableHeight())
+	w := int(float32(m.fullWidth) * leftPanelWidth)
+	h := m.registerTableHeight()
+	m.registerTable.SetHeight(h - 2)
+	style = style.Height(h).Width(w)
 	return style.Render(m.registerTable.View()) + "\n  " + m.registerTable.HelpView() + helpStyle.Render(" • <enter> update register value") + "\n"
 }
 
@@ -316,24 +323,17 @@ func (m model) renderRegisterForm() string {
 		s += m.registerInput.View()
 	}
 
-	style = style.Border(generateBorder("Edit Register", panelWith))
-
+	w := int(float32(m.fullWidth) * rightPanelWidth)
+	style = style.Border(generateBorder("Edit Register", w))
 	h := m.registerTableHeight()/2 - 1
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
-		style.Padding(0, 1).Height(h).Width(panelWith).Render(s),
+		style.Padding(0, 1).Height(h).Width(w).Render(s),
 		helpStyle.Render("enter - save • esc - discard"))
 }
 
 func (m model) registerTableHeight() int {
 	return m.fullHeight - 4
-}
-
-func (m model) panelHeight() int {
-	if m.registerTableHeight()%2 == 0 {
-		return m.registerTableHeight()/2 - 1
-	}
-	return m.registerTableHeight() / 2
 }
 
 func (m model) renderConfigTable() string {
@@ -349,7 +349,9 @@ func (m model) renderConfigTable() string {
 	} else {
 		h = m.registerTableHeight() / 2
 	}
-	return style.Height(h).Render(m.slaveTable.View())
+
+	w := int(float32(m.fullWidth) * rightPanelWidth)
+	return style.Height(h).Width(w).Render(m.slaveTable.View())
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
