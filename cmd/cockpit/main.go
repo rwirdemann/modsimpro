@@ -28,9 +28,8 @@ const (
 	focusRegisterList = iota
 	focusRegisterInput
 	focusSlaves
-	panelHeight     = 10
-	leftPanelWidth  = 0.6
-	rightPanelWidth = 0.38
+	panelHeight         = 10
+	ratioLeftPanelWidth = 0.6
 )
 
 var (
@@ -117,14 +116,18 @@ type modbusPort interface {
 }
 
 type model struct {
-	focus           int
-	registerTable   table.Model
-	slaveTable      table.Model
-	register        []modsimpro.Register
-	currentRegister modsimpro.Register
-	registerInput   textinput.Model
-	fullHeight      int
-	fullWidth       int
+	focus            int
+	registerTable    table.Model
+	slaveTable       table.Model
+	register         []modsimpro.Register
+	currentRegister  modsimpro.Register
+	registerInput    textinput.Model
+	fullHeight       int
+	fullWidth        int
+	leftPanelWidth   int
+	rightPanelWidth  int
+	slavePanelHeight int
+	editPanelHeight  int
 }
 
 func newModel() model {
@@ -164,7 +167,7 @@ func newModel() model {
 	}
 	slaveTable := table.New(
 		table.WithColumns(propertyColumns),
-		table.WithHeight(panelHeight-1),
+		// table.WithHeight(panelHeight-1),
 		table.WithRows(slavesToTableRows()),
 		table.WithFocused(true),
 	)
@@ -202,7 +205,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.fullHeight = msg.Height
 		m.fullWidth = msg.Width
+
+		m.leftPanelWidth = int(float32(m.fullWidth) * ratioLeftPanelWidth)
+		m.rightPanelWidth = m.fullWidth - m.leftPanelWidth - 4
+
+		m.slavePanelHeight = (m.fullHeight - 5) / 2
+		m.editPanelHeight = (m.fullHeight - 5) / 2
+		if m.fullHeight%2 != 0 {
+			m.editPanelHeight -= 1
+		}
+
 		m.registerTable.SetHeight(m.fullHeight - 4)
+		m.slaveTable.SetHeight(m.slavePanelHeight - 4)
+
 		return m, nil
 
 	case tea.KeyMsg:
@@ -299,9 +314,7 @@ func (m model) renderRegisterTable() string {
 	} else {
 		style = passiveStyle
 	}
-	w := int(float32(m.fullWidth) * leftPanelWidth)
-	h := m.registerTableHeight()
-	style = style.Height(h).Width(w)
+	style = style.Height(m.fullHeight - 4).Width(m.leftPanelWidth)
 	return style.Render(m.registerTable.View()) + "\n  " + m.registerTable.HelpView() + helpStyle.Render(" • <enter> update register value") + "\n"
 }
 
@@ -321,17 +334,11 @@ func (m model) renderRegisterForm() string {
 		s += m.registerInput.View()
 	}
 
-	w := int(float32(m.fullWidth) * rightPanelWidth)
-	style = style.Border(generateBorder("Edit Register", w))
-	h := m.registerTableHeight()/2 - 1
+	style = style.Border(generateBorder("Edit Register", m.rightPanelWidth))
 	return lipgloss.JoinVertical(
 		lipgloss.Top,
-		style.Padding(0, 1).Height(h).Width(w).Render(s),
+		style.Padding(0, 1).Height(m.editPanelHeight).Width(m.rightPanelWidth).Render(s),
 		helpStyle.Render("enter - save • esc - discard"))
-}
-
-func (m model) registerTableHeight() int {
-	return m.fullHeight - 4
 }
 
 func (m model) renderConfigTable() string {
@@ -341,15 +348,7 @@ func (m model) renderConfigTable() string {
 	} else {
 		style = passiveStyle
 	}
-	var h int
-	if m.registerTableHeight()%2 == 0 {
-		h = m.registerTableHeight()/2 - 1
-	} else {
-		h = m.registerTableHeight() / 2
-	}
-
-	w := int(float32(m.fullWidth) * rightPanelWidth)
-	return style.Height(h).Width(w).Render(m.slaveTable.View())
+	return style.Height(m.slavePanelHeight).Width(m.rightPanelWidth).Render(m.slaveTable.View())
 }
 
 func generateBorder(title string, width int) lipgloss.Border {
