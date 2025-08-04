@@ -278,6 +278,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.currentRegister.RawData = toUnt64(m.registerInput.Value())
 					case "F32T1234":
 						m.currentRegister.RawData = toFloat32(m.registerInput.Value())
+					case "F32T3412":
+						m.currentRegister.RawData = toFloat32(m.registerInput.Value())
 					}
 				}
 				err := slaves[m.slaveTable.Cursor()].modbusPort.WriteRegister(m.currentRegister)
