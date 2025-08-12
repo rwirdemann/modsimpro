@@ -38,6 +38,7 @@ func (s *ModbusServer) Start() (err error) {
 	if err == nil {
 		go s.acceptTCPClients()
 	}
+
 	return
 }
 
@@ -54,7 +55,7 @@ func (s *ModbusServer) acceptTCPClients() {
 		var err error
 		s.sock, err = s.tcpListener.Accept()
 		if err != nil {
-			slog.Warn("failed to accept client connection: %v", err)
+			slog.Warn("failed to accept client connection", "error", err)
 			continue
 		}
 		ts := time.Now().Format(time.DateTime)
@@ -70,8 +71,10 @@ type Endianness uint
 type Error string
 
 const (
-	fcReadDiscreteInputs uint8 = 0x02
-	mbapHeaderLength     int   = 7
+	fcReadDiscreteInputs     uint8 = 0x02
+	fcReadInputRegisters     uint8 = 0x04
+	fcWriteMultipleRegisters uint8 = 0x10
+	mbapHeaderLength         int   = 7
 
 	// endianness of 16-bit registers
 	BIG_ENDIAN        Endianness = 1
@@ -102,7 +105,11 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			continue
 		}
 		ts := time.Now().Format(time.DateTime)
-		s.logger.Append(fmt.Sprintf("%s req: slave id: %d fc: %X payload: % X", ts, req.unitId, req.functionCode, req.payload))
+		payloadToLog := req.payload
+		if len(payloadToLog) > 4 {
+			payloadToLog = payloadToLog[:4]
+		}
+		s.logger.Append(fmt.Sprintf("%s req: slave id: %d fc: %X payload: % X", ts, req.unitId, req.functionCode, payloadToLog))
 
 		// store the incoming transaction id
 		s.lastTxnId = txnId
@@ -139,6 +146,78 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			res.payload = append(res.payload, encodeBools(values)...)
 
 			ts := time.Now().Format(time.DateTime)
+			s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, res.payload))
+
+			_, err = s.sock.Write(s.assembleMBAPFrame(s.lastTxnId, res))
+			if err != nil {
+				return
+			}
+		} else if req.functionCode == fcReadInputRegisters {
+			addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
+			quantity := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
+
+			// generate random 16-bit register values
+			var values = make([]uint16, quantity)
+			for i := range int(quantity) {
+				values[i] = uint16(rand.Intn(65536))
+			}
+
+			// assemble a response PDU
+			res := &pdu{
+				unitId:       req.unitId,
+				functionCode: req.functionCode,
+				payload:      []byte{uint8(quantity * 2)}, // byte count (2 bytes per register)
+			}
+
+			// append register values as bytes
+			for _, value := range values {
+				res.payload = append(res.payload, uint16ToBytes(BIG_ENDIAN, value)...)
+			}
+
+			ts := time.Now().Format(time.DateTime)
+
+			// Timesync hack
+			timeregAddr := []byte{0x8F, 0xFC}
+			if addr == bytesToUint16(BIG_ENDIAN, timeregAddr) {
+				s.logger.Append("wrote time reg")
+				// tsBytes := []byte(ts)
+				// res.payload = tsBytes
+			}
+
+			payloadToLog := res.payload
+			if len(payloadToLog) > 4 {
+				payloadToLog = payloadToLog[:4]
+			}
+			s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, payloadToLog))
+
+			_, err = s.sock.Write(s.assembleMBAPFrame(s.lastTxnId, res))
+			if err != nil {
+				return
+			}
+		} else if req.functionCode == fcWriteMultipleRegisters {
+			addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
+			quantity := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
+			byteCount := req.payload[4]
+
+			// validate byte count
+			if byteCount != uint8(quantity*2) {
+				continue
+			}
+
+			// log the write operation
+			ts := time.Now().Format(time.DateTime)
+			s.logger.Append(fmt.Sprintf("%s write: slave id: %d addr: %d quantity: %d", ts, req.unitId, addr, quantity))
+
+			// assemble response PDU (echo back addr and quantity)
+			res := &pdu{
+				unitId:       req.unitId,
+				functionCode: req.functionCode,
+				payload:      make([]byte, 4),
+			}
+			copy(res.payload[0:2], uint16ToBytes(BIG_ENDIAN, addr))
+			copy(res.payload[2:4], uint16ToBytes(BIG_ENDIAN, quantity))
+
+			ts = time.Now().Format(time.DateTime)
 			s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, res.payload))
 
 			_, err = s.sock.Write(s.assembleMBAPFrame(s.lastTxnId, res))

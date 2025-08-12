@@ -74,7 +74,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// Remove items from log panel if their number exceeds new panel height
-		if len(m.logger.items) > msg.Height-3 {
+		if len(m.logger.items) > 0 && len(m.logger.items) > msg.Height-3 {
 			m.logger.items = m.logger.items[len(m.logger.items)-msg.Height-3:]
 		}
 
@@ -161,7 +161,7 @@ func main() {
 
 	logger := &logger{}
 	var connections []list.Item
-	for _, serial := range config.Serials {
+	for _, serial := range config.Serial {
 		ms := modsimpro.NewModbusServer(serial.Url, logger)
 		err := ms.Start()
 		if err != nil {
@@ -171,7 +171,7 @@ func main() {
 		for _, slave := range serial.Slaves {
 			c := Slave{
 				URL:    serial.Url,
-				ID:     slave.Address,
+				ID:     int(slave.Address),
 				Name:   slave.Type,
 				Server: ms,
 			}
@@ -185,9 +185,9 @@ func main() {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
-	rootPanel := panels.NewPanel(true, true, 1.0, nil)
-	rootPanel.Append(panels.NewPanel(true, false, 0.35, renderListView))
-	rootPanel.Append(panels.NewPanel(true, false, 0.65, renderLogView))
+	rootPanel := panels.NewPanel(panels.LayoutDirectionHorizontal, true, true, 1.0, nil)
+	rootPanel.Append(panels.NewPanel(panels.LayoutDirectionNone, true, false, 0.35, renderListView))
+	rootPanel.Append(panels.NewPanel(panels.LayoutDirectionNone, true, false, 0.65, renderLogView))
 	m := model{
 		list:      l,
 		logger:    logger,
