@@ -179,9 +179,19 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			// Timesync hack
 			timeregAddr := []byte{0x8F, 0xFC}
 			if addr == bytesToUint16(BIG_ENDIAN, timeregAddr) {
-				s.logger.Append("wrote time reg")
-				// tsBytes := []byte(ts)
-				// res.payload = tsBytes
+				var syncTime uint64 = 2815470101985099801 // 2025-08-14 15:36
+
+				// Split into 4 words (16-bit each, big endian)
+				word0 := uint16((syncTime >> 48) & 0xFFFF)
+				word1 := uint16((syncTime >> 32) & 0xFFFF)
+				word2 := uint16((syncTime >> 16) & 0xFFFF)
+				word3 := uint16(syncTime & 0xFFFF)
+
+				// Copy the 4 words into the first 8 bytes of res.payload
+				copy(res.payload[1:3], uint16ToBytes(BIG_ENDIAN, word0))
+				copy(res.payload[3:5], uint16ToBytes(BIG_ENDIAN, word1))
+				copy(res.payload[5:7], uint16ToBytes(BIG_ENDIAN, word2))
+				copy(res.payload[7:9], uint16ToBytes(BIG_ENDIAN, word3))
 			}
 
 			payloadToLog := res.payload
