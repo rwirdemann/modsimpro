@@ -73,6 +73,7 @@ type Error string
 const (
 	fcReadDiscreteInputs     uint8 = 0x02
 	fcReadInputRegisters     uint8 = 0x04
+	fcWriteSingleRegister    uint8 = 0x06
 	fcWriteMultipleRegisters uint8 = 0x10
 	mbapHeaderLength         int   = 7
 
@@ -118,6 +119,23 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			ts := time.Now().Format(time.DateTime)
 			s.logger.Append(fmt.Sprintf("%s req: slave id: %d is offline", ts, req.unitId))
 			continue
+		}
+
+		if req.functionCode == fcWriteSingleRegister {
+			addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
+			value := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
+			ts := time.Now().Format(time.DateTime)
+			s.logger.Append(fmt.Sprintf("%s % X %d", ts, addr, value))
+			res := &pdu{
+				unitId:       req.unitId,
+				functionCode: req.functionCode,
+				payload:      req.payload[0:4],
+			}
+			s.logger.Append(fmt.Sprintf("%s res: slave id: %d fc: %X payload: % X", ts, res.unitId, res.functionCode, res.payload))
+			_, err = s.sock.Write(s.assembleMBAPFrame(s.lastTxnId, res))
+			if err != nil {
+				return
+			}
 		}
 
 		if req.functionCode == fcReadDiscreteInputs {
