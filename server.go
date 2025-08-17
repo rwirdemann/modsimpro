@@ -23,12 +23,16 @@ type ModbusServer struct {
 	sock        net.Conn
 	lastTxnId   uint16
 	slaves      map[int]bool
+	memoryMap   map[uint16]uint16
 }
 
 func NewModbusServer(url string, logger Logger) *ModbusServer {
 	splitURL := strings.SplitN(url, "://", 2)
 	if len(splitURL) == 2 {
-		return &ModbusServer{url: splitURL[1], logger: logger, slaves: make(map[int]bool)}
+		return &ModbusServer{url: splitURL[1], logger: logger,
+			slaves:    make(map[int]bool),
+			memoryMap: make(map[uint16]uint16),
+		}
 	}
 	return nil
 }
@@ -126,6 +130,9 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			value := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
 			ts := time.Now().Format(time.DateTime)
 			s.logger.Append(fmt.Sprintf("%s % X %d", ts, addr, value))
+
+			s.memoryMap[addr] = value
+
 			res := &pdu{
 				unitId:       req.unitId,
 				functionCode: req.functionCode,
@@ -139,7 +146,7 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 		}
 
 		if req.functionCode == fcReadDiscreteInputs {
-			// addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
+			//addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
 			quantity := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
 
 			var values = make([]bool, quantity)
@@ -174,10 +181,15 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			addr := bytesToUint16(BIG_ENDIAN, req.payload[0:2])
 			quantity := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
 
-			// generate random 16-bit register values
 			var values = make([]uint16, quantity)
-			for i := range int(quantity) {
-				values[i] = uint16(rand.Intn(65536))
+			if v, ok := s.memoryMap[addr]; ok {
+				s.logger.Append(fmt.Sprintf("got response: %d", v))
+				values[0] = v
+			} else {
+				// generate random 16-bit register values
+				for i := range int(quantity) {
+					values[i] = uint16(rand.Intn(65536))
+				}
 			}
 
 			// assemble a response PDU

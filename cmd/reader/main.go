@@ -21,7 +21,7 @@ func main() {
 	defer handler.Close()
 
 	client := modbus.NewClient(handler)
-	bb, err := client.ReadDiscreteInputs(0x7e3, 1)
+	bb, err := client.ReadInputRegisters(0x7e3, 1)
 	if err != nil {
 		log.Fatal(err)
 	}
