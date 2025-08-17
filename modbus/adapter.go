@@ -8,7 +8,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/rwirdemann/modsimpro"
 	"github.com/simonvetter/modbus"
 )
 
@@ -16,7 +15,7 @@ type Adapter struct {
 	client *modbus.ModbusClient
 }
 
-func NewAdapter(serial modsimpro.Serial) Adapter {
+func NewAdapter(serial Serial) Adapter {
 	client, err := modbus.NewClient(&modbus.ClientConfiguration{
 		URL:      serial.Url,
 		Speed:    uint(serial.Speed),
@@ -39,8 +38,8 @@ func (a Adapter) Close() {
 	_ = a.client.Close()
 }
 
-func (a Adapter) ReadRegister(register []modsimpro.Register) []modsimpro.Register {
-	var rr []modsimpro.Register
+func (a Adapter) ReadRegister(register []Register) []Register {
+	var rr []Register
 	for _, r := range register {
 		switch r.RegisterType {
 		case "holding":
@@ -71,7 +70,7 @@ func (a Adapter) ReadRegister(register []modsimpro.Register) []modsimpro.Registe
 	return rr
 }
 
-func (a Adapter) WriteRegister(r modsimpro.Register) error {
+func (a Adapter) WriteRegister(r Register) error {
 	if err := a.client.SetUnitId(r.SlaveAddress); err != nil {
 		return fmt.Errorf("set unit id: %w", err)
 	}
@@ -112,23 +111,23 @@ func (a Adapter) WriteRegister(r modsimpro.Register) error {
 	return nil
 }
 
-func (a Adapter) readHolding(register modsimpro.Register) (modsimpro.Register, error) {
+func (a Adapter) readHolding(register Register) (Register, error) {
 	if err := a.client.SetUnitId(register.SlaveAddress); err != nil {
-		return modsimpro.Register{}, fmt.Errorf("set unit id: %w", err)
+		return Register{}, fmt.Errorf("set unit id: %w", err)
 	}
 
 	switch register.Datatype {
 	case "F32T1234":
 		v, err := a.client.ReadFloat32(register.Address, modbus.HOLDING_REGISTER)
 		if err != nil {
-			return modsimpro.Register{}, err
+			return Register{}, err
 		}
 		register.RawData = v
 		return register, nil
 	case "F32T3412":
 		bb, err := a.client.ReadRawBytes(register.Address, 4, modbus.HOLDING_REGISTER)
 		if err != nil {
-			return modsimpro.Register{}, err
+			return Register{}, err
 		}
 		msb := binary.BigEndian.Uint16(bb[0:2])
 		lsb := binary.BigEndian.Uint16(bb[2:4])
@@ -136,43 +135,43 @@ func (a Adapter) readHolding(register modsimpro.Register) (modsimpro.Register, e
 		register.RawData = math.Float32frombits(bits)
 		return register, nil
 	default:
-		return modsimpro.Register{}, fmt.Errorf("unknown datatype: %s", register.Datatype)
+		return Register{}, fmt.Errorf("unknown datatype: %s", register.Datatype)
 	}
 }
 
-func (a Adapter) readInput(register modsimpro.Register) (modsimpro.Register, error) {
+func (a Adapter) readInput(register Register) (Register, error) {
 	if err := a.client.SetUnitId(register.SlaveAddress); err != nil {
-		return modsimpro.Register{}, fmt.Errorf("set unit id: %w", err)
+		return Register{}, fmt.Errorf("set unit id: %w", err)
 	}
 
 	switch register.Datatype {
 	case "F32T1234", "F32T3412":
 		v, err := a.client.ReadFloat32(register.Address, modbus.INPUT_REGISTER)
 		if err != nil {
-			return modsimpro.Register{}, err
+			return Register{}, err
 		}
 		register.RawData = v
 		return register, nil
 	case "T64T1234":
 		v, err := a.client.ReadUint64(register.Address, modbus.INPUT_REGISTER)
 		if err != nil {
-			return modsimpro.Register{}, err
+			return Register{}, err
 		}
 		register.RawData = v
 		return register, nil
 	default:
-		return modsimpro.Register{}, fmt.Errorf("unknown datatype: %s", register.Datatype)
+		return Register{}, fmt.Errorf("unknown datatype: %s", register.Datatype)
 	}
 }
 
-func (a Adapter) readDiscrete(register modsimpro.Register) (modsimpro.Register, error) {
+func (a Adapter) readDiscrete(register Register) (Register, error) {
 	if err := a.client.SetUnitId(register.SlaveAddress); err != nil {
-		return modsimpro.Register{}, fmt.Errorf("set unit id: %w", err)
+		return Register{}, fmt.Errorf("set unit id: %w", err)
 	}
 
 	b, err := a.client.ReadDiscreteInput(register.Address)
 	if err != nil {
-		return modsimpro.Register{}, err
+		return Register{}, err
 	}
 	register.RawData = b
 	return register, nil

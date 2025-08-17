@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rwirdemann/modsimpro"
+	"github.com/rwirdemann/modsimpro/modbus"
 	"github.com/rwirdemann/panels"
 )
 
@@ -154,7 +155,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	config, err := modsimpro.LoadConfig(configPath)
+	config, err := modbus.LoadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}

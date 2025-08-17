@@ -20,7 +20,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rwirdemann/modsimpro"
 	"github.com/rwirdemann/modsimpro/modbus"
 )
 
@@ -51,10 +50,10 @@ var helpStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{
 }).Padding(0, 1)
 
 type slave struct {
-	modsimpro.Slave
+	modbus.Slave
 	url        string
 	modbusPort modbusPort
-	Registers  []modsimpro.Register
+	Registers  []modbus.Register
 }
 
 var slaves []slave
@@ -110,8 +109,8 @@ func main() {
 }
 
 type modbusPort interface {
-	ReadRegister(register []modsimpro.Register) []modsimpro.Register
-	WriteRegister(register modsimpro.Register) error
+	ReadRegister(register []modbus.Register) []modbus.Register
+	WriteRegister(register modbus.Register) error
 	Close()
 }
 
@@ -119,8 +118,8 @@ type model struct {
 	focus            int
 	registerTable    table.Model
 	slaveTable       table.Model
-	register         []modsimpro.Register
-	currentRegister  modsimpro.Register
+	register         []modbus.Register
+	currentRegister  modbus.Register
 	registerInput    textinput.Model
 	fullHeight       int
 	fullWidth        int
@@ -366,7 +365,7 @@ func init() {
 	slog.Info("Initializing main")
 }
 
-var config modsimpro.Config
+var config modbus.Config
 
 func toFloat32(s string) float32 {
 	f, err := strconv.ParseFloat(s, 32)
@@ -395,7 +394,7 @@ func toUnt64(s string) uint64 {
 	return i
 }
 
-func registersToTableRows(registers []modsimpro.Register) []table.Row {
+func registersToTableRows(registers []modbus.Register) []table.Row {
 	var rows []table.Row
 	for _, r := range registers {
 		rows = append(rows, buildTableRow(r))
@@ -403,7 +402,7 @@ func registersToTableRows(registers []modsimpro.Register) []table.Row {
 	return rows
 }
 
-func buildTableRow(r modsimpro.Register) table.Row {
+func buildTableRow(r modbus.Register) table.Row {
 	return table.Row{
 		fmt.Sprintf("%d", r.SlaveAddress),
 		fmt.Sprintf("0x%X", r.Address),
@@ -422,9 +421,9 @@ func readFile(name string) io.Reader {
 	return bytes.NewReader(bb)
 }
 
-func parseRegisterDSL(reader io.Reader, slaveAddress uint8) ([]modsimpro.Register, error) {
+func parseRegisterDSL(reader io.Reader, slaveAddress uint8) ([]modbus.Register, error) {
 	dsl := readDSL(reader)
-	var registers []modsimpro.Register
+	var registers []modbus.Register
 
 	for _, l := range dsl {
 		line := strings.Trim(l, " ")
@@ -441,7 +440,7 @@ func parseRegisterDSL(reader io.Reader, slaveAddress uint8) ([]modsimpro.Registe
 		if len(ff) != 6 {
 			return nil, fmt.Errorf("register.dsl: statement '%s' contains invalid keywords", line)
 		}
-		reg := modsimpro.Register{
+		reg := modbus.Register{
 			SlaveAddress: slaveAddress,
 			Action:       ff[0],
 			Address:      parseUint16(ff[2]),

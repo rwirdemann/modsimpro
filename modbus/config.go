@@ -1,4 +1,4 @@
-package modsimpro
+package modbus
 
 import (
 	"bytes"

@@ -9,6 +9,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/rwirdemann/modsimpro/modbus"
 )
 
 type Logger interface {
@@ -23,7 +25,7 @@ type ModbusServer struct {
 	sock        net.Conn
 	lastTxnId   uint16
 	slaves      map[int]bool
-	memoryMap   map[uint16]uint16
+	memoryMap   *modbus.MemoryMap
 }
 
 func NewModbusServer(url string, logger Logger) *ModbusServer {
@@ -31,7 +33,7 @@ func NewModbusServer(url string, logger Logger) *ModbusServer {
 	if len(splitURL) == 2 {
 		return &ModbusServer{url: splitURL[1], logger: logger,
 			slaves:    make(map[int]bool),
-			memoryMap: make(map[uint16]uint16),
+			memoryMap: modbus.NewMemoryMap(),
 		}
 	}
 	return nil
@@ -131,7 +133,7 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			ts := time.Now().Format(time.DateTime)
 			s.logger.Append(fmt.Sprintf("%s % X %d", ts, addr, value))
 
-			s.memoryMap[addr] = value
+			s.memoryMap.PutInputReg(addr, value)
 
 			res := &pdu{
 				unitId:       req.unitId,
@@ -182,7 +184,7 @@ func (s *ModbusServer) handleClient() (req *pdu, err error) {
 			quantity := bytesToUint16(BIG_ENDIAN, req.payload[2:4])
 
 			var values = make([]uint16, quantity)
-			if v, ok := s.memoryMap[addr]; ok {
+			if v, ok := s.memoryMap.GetInputReg(addr); ok {
 				s.logger.Append(fmt.Sprintf("got response: %d", v))
 				values[0] = v
 			} else {

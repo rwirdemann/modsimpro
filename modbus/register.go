@@ -1,4 +1,4 @@
-package modsimpro
+package modbus
 
 type Register struct {
 	SlaveAddress uint8  // the slave address to which this register belongs
